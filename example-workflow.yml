@@ -1,0 +1,28 @@
+# 复制到你的仓库: .github/workflows/ai-review.yml
+name: 🤖 AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  ai-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史以计算 diff
+
+      - name: AI 代码审查
+        uses: code-review-bot/review@v1
+        with:
+          api_key: ${{ secrets.DEEPSEEK_API_KEY }}
+          model: deepseek-chat
+          language: zh-CN
