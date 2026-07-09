@@ -58,8 +58,8 @@ module.exports = require("path");
 /************************************************************************/
 var __webpack_exports__ = {};
 /**
- * AI Code Reviewer — GitHub Action
- * 监听 PR → DeepSeek 审查 → 评论区返回建议
+ * AI Code Reviewer — GitHub Action v2.0
+ * PR 自动审查 + 行内评论 + 总结报告
  */
 
 const fs = __nccwpck_require__(896);
@@ -93,7 +93,7 @@ async function githubApi(endpoint, opts = {}) {
   const headers = {
     Authorization: `Bearer ${GITHUB.token}`,
     Accept: "application/vnd.github+json",
-    "User-Agent": "CodeReviewBot/1.0",
+    "User-Agent": "CodeReviewBot/2.0",
     ...opts.headers,
   };
 
@@ -113,7 +113,6 @@ function getPRFromEvent() {
   }
   const event = JSON.parse(fs.readFileSync(GITHUB.eventPath, "utf-8"));
 
-  // pull_request 事件
   if (event.pull_request) {
     return {
       number: event.pull_request.number,
@@ -121,22 +120,71 @@ function getPRFromEvent() {
       body: event.pull_request.body || "",
       base: event.pull_request.base.ref,
       head: event.pull_request.head.ref,
+      headSha: event.pull_request.head.sha,
       url: event.pull_request._links?.html?.href || event.pull_request.html_url,
       diffUrl: event.pull_request.diff_url,
     };
   }
 
-  // issue_comment 事件（对 PR 的评论）
-  if (event.issue?.pull_request) {
-    return {
-      number: event.issue.number,
-      title: event.issue.title,
-      body: event.issue.body || "",
-      url: event.issue.pull_request?.html_url || event.issue.html_url,
-    };
-  }
+  throw new Error(`不支持的事件类型: ${GITHUB.eventName}`);
+}
 
-  throw new Error(`不支持的事件类型: ${GITHUB.eventName}。请在 pull_request 或 pull_request_target 事件中使用。`);
+// ============ 内联评论解析 ============
+
+/**
+ * 从 AI 审查结果中提取可定位到具体行的发现
+ * 匹配格式: - 【位置】文件名:行号
+ */
+function parseInlineFindings(reviewText) {
+  const findings = [];
+  const lines = reviewText.split("\n");
+
+  let currentFinding = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // 匹配 【位置】文件名:行号
+    const match = line.match(/【位置】\s*(\S+)\s*:\s*(\d+)(?:\s*[-–]\s*(\d+))?/);
+    if (match) {
+      if (currentFinding) findings.push(currentFinding);
+
+      const file = match[1];
+      const lineNum = parseInt(match[2], 10);
+      const endLine = match[3] ? parseInt(match[3], 10) : lineNum;
+
+      // 获取上下文（问题描述）
+      let body = "";
+      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+        if (lines[j].includes("【位置】")) break;
+        if (lines[j].trim()) {
+          body += lines[j].trim() + "\n";
+        }
+      }
+      body = body.replace(/^【[^】]+】\s*/gm, "").trim();
+
+      if (body) {
+        currentFinding = { file, line: lineNum, endLine, body };
+      }
+    }
+  }
+  if (currentFinding) findings.push(currentFinding);
+
+  return findings;
+}
+
+/**
+ * 从 diff 中计算 GitHub 行内评论所需的 position
+ * 简化版：用 line 参数直接定位（GitHub API 支持新的 line/side 参数）
+ */
+function buildInlineComments(findings, changedFiles) {
+  return findings
+    .filter((f) => changedFiles.some((cf) => cf.endsWith(f.file) || cf === f.file))
+    .map((f) => ({
+      path: f.file,
+      line: f.line,
+      side: "RIGHT",
+      body: `🤖 ${f.body}`,
+    }));
 }
 
 // ============ AI 审查核心 ============
@@ -151,15 +199,15 @@ const SYSTEM_PROMPT = `你是一个资深代码审查专家。审查以下 Pull 
 5. **最佳实践**：框架习惯用法、类型安全、测试覆盖
 
 ## 输出格式
-请用中文输出，按以下结构组织：
+请用中文输出，按以下结构组织（【位置】格式必须严格遵循，用于自动定位到代码行）：
 
 ### 🔴 严重问题（必须修复）
-- 【位置】文件名:行号范围
+- 【位置】文件名:行号
 - 【问题】描述
 - 【建议】修复方案（含代码示例）
 
 ### 🟡 改进建议
-- 【位置】文件名
+- 【位置】文件名:行号
 - 【问题】描述
 - 【建议】改进方案
 
@@ -169,17 +217,16 @@ const SYSTEM_PROMPT = `你是一个资深代码审查专家。审查以下 Pull 
 ### ✅ 审查总结
 用一两句话总结本次审查的整体评价。
 
-如果没有发现严重问题，请明确说"未发现严重问题"。只评论代码变更，不要评论 PR 标题或描述。`;
+如果没有发现严重问题，请明确说"未发现严重问题"。只评论代码变更。`;
 
 async function reviewDiff(diff) {
   if (!diff || diff.trim().length === 0) {
     return "无法获取代码变更内容，请检查 PR diff。";
   }
 
-  // 截断过大的 diff（DeepSeek 上下文限制）
   const MAX_DIFF = 30000;
   const truncated = diff.length > MAX_DIFF
-    ? diff.slice(0, MAX_DIFF) + "\n\n... (diff 过大，已截断，仅审查前 30KB)"
+    ? diff.slice(0, MAX_DIFF) + "\n\n... (diff 过大，已截断)"
     : diff;
 
   const userPrompt = `请审查以下代码变更：\n\n\`\`\`diff\n${truncated}\n\`\`\``;
@@ -210,15 +257,35 @@ async function reviewDiff(diff) {
   return data.choices?.[0]?.message?.content || "审查未生成有效输出";
 }
 
-// ============ 发布评论 ============
+// ============ 发布 ============
 
 async function postPRComment(prNumber, body) {
-  const endpoint = `/issues/${prNumber}/comments`;
-  return githubApi(endpoint, {
+  return githubApi(`/issues/${prNumber}/comments`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      body: `🤖 **AI 代码审查报告** — CodeReviewBot\n\n${body}\n\n---\n<sub>由 DeepSeek 驱动 | 审查范围: ${CONFIG.reviewScope}</sub>`,
+      body: `🤖 **AI 代码审查报告** — CodeReviewBot v2.0\n\n${body}\n\n---\n<sub>由 DeepSeek 驱动 | 审查范围: ${CONFIG.reviewScope}</sub>`,
+    }),
+  });
+}
+
+/**
+ * 创建带行内评论的 PR Review
+ */
+async function createPRReview(prNumber, headSha, comments, summaryBody) {
+  if (!comments || comments.length === 0) return null;
+
+  // 限制评论数量
+  const limited = comments.slice(0, 10);
+
+  return githubApi(`/pulls/${prNumber}/reviews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      commit_id: headSha,
+      body: `🤖 **行内审查** — 共 ${limited.length} 条\n\n${summaryBody ? summaryBody.slice(0, 500) : ""}`,
+      event: "COMMENT",
+      comments: limited,
     }),
   });
 }
@@ -226,50 +293,57 @@ async function postPRComment(prNumber, body) {
 // ============ 主流程 ============
 
 async function main() {
-  // 1. 校验配置
-  if (!CONFIG.apiKey) {
-    throw new Error("缺少 API Key! 请在 Action 中设置 api_key 参数或 DEEPSEEK_API_KEY secret。");
-  }
-  if (!GITHUB.token) {
-    throw new Error("缺少 GITHUB_TOKEN! 请在 workflow 中设置 permissions.contents: read 和 permissions.pull-requests: write。");
-  }
+  if (!CONFIG.apiKey) throw new Error("缺少 API Key!");
+  if (!GITHUB.token) throw new Error("缺少 GITHUB_TOKEN!");
 
-  console.log("🤖 CodeReviewBot 启动...");
+  console.log("🤖 CodeReviewBot v2.0 启动...");
   console.log(`  模型: ${CONFIG.model}`);
-  console.log(`  范围: ${CONFIG.reviewScope}`);
 
-  // 2. 获取 PR 信息
+  // 1. 获取 PR 信息
   const pr = getPRFromEvent();
   console.log(`  PR: #${pr.number} — ${pr.title}`);
-  console.log(`  分支: ${pr.base} ← ${pr.head}`);
 
-  // 3. 获取 diff
+  // 2. 获取 diff
   let diff;
   if (pr.diffUrl) {
-    console.log(`  获取 diff: ${pr.diffUrl}`);
     const resp = await fetch(pr.diffUrl, {
       headers: { Authorization: `Bearer ${GITHUB.token}`, Accept: "application/vnd.github.diff" },
     });
     diff = resp.ok ? await resp.text() : "";
   } else {
-    // 没有直接 diff_url，用 compare API
     const compareData = await githubApi(`/compare/${pr.base}...${pr.head}`);
     diff = compareData.diff || compareData.files?.map(f => f.patch).join("\n") || "";
   }
-  console.log(`  diff 大小: ${diff.length} 字符`);
+  console.log(`  diff: ${diff.length} 字符`);
 
-  // 4. AI 审查
+  // 3. AI 审查
   console.log("  AI 审查中...");
   const review = await reviewDiff(diff);
   console.log(`  审查完成 (${review.length} 字)`);
 
-  // 5. 发布评论
+  // 4. 发布总结评论
   await postPRComment(pr.number, review);
-  console.log("✅ 审查评论已发布到 PR");
+  console.log("✅ 总结评论已发布");
+
+  // 5. 发布行内评论
+  const findings = parseInlineFindings(review);
+  if (findings.length > 0 && pr.headSha) {
+    // 获取变更文件列表
+    const prData = await githubApi(`/pulls/${pr.number}/files?per_page=50`);
+    const changedFiles = prData.map(f => f.filename);
+
+    const inlineComments = buildInlineComments(findings, changedFiles);
+    console.log(`  解析到 ${findings.length} 个发现，${inlineComments.length} 条可定位到代码行`);
+
+    if (inlineComments.length > 0) {
+      await createPRReview(pr.number, pr.headSha, inlineComments);
+      console.log("✅ 行内评论已发布");
+    }
+  }
 }
 
 main().catch((err) => {
-  console.error(`❌ 审查失败: ${err.message}`);
+  console.error(`❌ 失败: ${err.message}`);
   process.exit(1);
 });
 
