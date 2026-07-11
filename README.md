@@ -1,5 +1,24 @@
 # 🤖 CodeReviewBot
 
+[![DeepSeek](https://img.shields.io/badge/AI-DeepSeek_V4-4B93BF)](https://deepseek.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![version](https://img.shields.io/badge/version-v3.0.0-blue)](https://github.com/s544vrmd4t-del/code-review-bot/releases)
+
+> PR 提交后自动 AI 代码审查 — DeepSeek 驱动，结果直接评论到 PR
+
+## 🚀 同系列 Action
+
+| Action | 用途 |
+|--------|------|
+| [CodeReviewBot](https://github.com/s544vrmd4t-del/code-review-bot) | 🤖 AI 代码审查 |
+| [SecurityScanner](https://github.com/s544vrmd4t-del/security-scanner) | 🔒 安全漏洞扫描 |
+| [TestWriter](https://github.com/s544vrmd4t-del/test-writer) | 🧪 自动写测试用例 |
+| [ReleaseNotes](https://github.com/s544vrmd4t-del/release-notes) | 📋 自动生成更新日志 |
+| [PRSummarizer](https://github.com/s544vrmd4t-del/pr-summarizer) | 📖 PR 一句话总结 |
+| [DocGenerator](https://github.com/s544vrmd4t-del/doc-generator) | 📝 自动补文档注释 |
+
+---
+
 PR 提交后自动 AI 代码审查 — DeepSeek 驱动，结果直接评论到 PR。
 
 ## 快速使用
@@ -63,3 +82,4 @@ PR 提交后机器人自动在评论区回复审查报告：
 
 - 代码仅发送到 DeepSeek API 用于审查
 - 不存储、不记录、不训练
+
