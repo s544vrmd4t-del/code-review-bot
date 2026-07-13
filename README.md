@@ -1,31 +1,33 @@
-# 🤖 CodeReviewBot · AI 代码审查
+# ⚡ AI Code Review
 
-[![DeepSeek V4](https://img.shields.io/badge/AI-DeepSeek_V4-4B93BF?style=flat-square)](https://deepseek.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-[![v3.1](https://img.shields.io/badge/version-v3.1-blue?style=flat-square)](https://github.com/s544vrmd4t-del/code-review-bot/releases)
-[![Marketplace](https://img.shields.io/badge/Marketplace-Available-brightgreen?style=flat-square)](https://github.com/marketplace/actions/code-review-bot)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Available-brightgreen)](https://github.com/marketplace)
+[![DeepSeek](https://img.shields.io/badge/AI-DeepSeek_V4-4B93BF)](https://deepseek.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![version](https://img.shields.io/badge/version-v3.1.0-purple)](https://github.com/s544vrmd4t-del/code-review-bot/releases)
 
-> PR 提交 → AI 自动审查 → 评论报告。**DeepSeek 驱动，零配置，秒级响应。**
-
-## 🚀 同系列 Action
-
-| Action | 用途 |
-|--------|------|
-| [CodeReviewBot](https://github.com/s544vrmd4t-del/code-review-bot) | 🤖 AI 代码审查 |
-| [SecurityScanner](https://github.com/s544vrmd4t-del/security-scanner) | 🔒 安全漏洞扫描 |
-| [TestWriter](https://github.com/s544vrmd4t-del/test-writer) | 🧪 自动写测试用例 |
-| [ReleaseNotes](https://github.com/s544vrmd4t-del/release-notes) | 📋 自动生成更新日志 |
-| [PRSummarizer](https://github.com/s544vrmd4t-del/pr-summarizer) | 📖 PR 一句话总结 |
-| [DocGenerator](https://github.com/s544vrmd4t-del/doc-generator) | 📝 自动补文档注释 |
+> PR 提交后自动 AI 代码审查，DeepSeek V4 驱动，审查结果直接评论到 PR。支持全量/增量审查、多语言输出。
 
 ---
 
-PR 提交后自动 AI 代码审查 — DeepSeek 驱动，结果直接评论到 PR。
+## 🚀 同系列 Action 全家桶
+
+| Action | 用途 | 状态 |
+|--------|------|------|
+| [🤖 AI Code Review](https://github.com/s544vrmd4t-del/code-review-bot) | PR 自动 AI 代码审查 | :white_check_mark: 已发布 |
+| [:book: AI PR Summarizer](https://github.com/s544vrmd4t-del/pr-summarizer) | 长 PR 一键中文总结 | :white_check_mark: 已发布 |
+| [:lock: AI Security Scanner](https://github.com/s544vrmd4t-del/security-scanner) | 安全漏洞自动扫描 | :white_check_mark: 已发布 |
+| [:clipboard: AI Release Notes](https://github.com/s544vrmd4t-del/release-notes) | 自动生成 Release Notes | :white_check_mark: 已发布 |
+| [:memo: AI Doc Generator](https://github.com/s544vrmd4t-del/doc-generator) | 自动生成代码文档 | :white_check_mark: 已发布 |
+| [:test_tube: AI Test Writer](https://github.com/s544vrmd4t-del/test-writer) | 自动生成单元测试 | :white_check_mark: 已发布 |
+
+> :bulb: **建议组合使用**: 在 Workflow 中串联多个 Action 实现 PR 审查 + 安全扫描 + 文档生成一站式自动化。
+
+---
 
 ## 快速使用
 
 ```yaml
-# .github/workflows/ai-review.yml
+# .github/workflows/code-review-bot.yml
 name: AI Code Review
 
 on:
@@ -37,31 +39,31 @@ permissions:
   pull-requests: write
 
 jobs:
-  review:
+  run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: code-review-bot/review@v1
+      - uses: s544vrmd4t-del/code-review-bot@v1
         with:
           api_key: ${{ secrets.DEEPSEEK_API_KEY }}
 ```
 
-## 效果
+---
 
-PR 提交后机器人自动在评论区回复审查报告：
+## 效果示例
 
 ```
-🤖 AI 代码审查报告 — CodeReviewBot
+⚡ AI AI Code Review — AI 代码审查
 
-### 🔴 严重问题
-- 【位置】auth.js:45-52 密码明文存储...
+:bar_chart: 报告摘要
+- 共扫描/处理 X 个文件
+- 发现问题/生成内容 Y 项
+- 耗时 Z 秒
 
-### 🟡 改进建议
-- ...
-
-### ✅ 审查总结
-本次 PR 整体质量良好...
+:white_check_mark: 详细结果见评论区
 ```
+
+---
 
 ## 配置项
 
@@ -69,8 +71,11 @@ PR 提交后机器人自动在评论区回复审查报告：
 |------|--------|------|
 | `api_key` | (必填) | DeepSeek API Key |
 | `model` | `deepseek-chat` | 模型名称 |
-| `review_scope` | `changed` | 审查范围 |
+| `base_url` | `https://api.deepseek.com/v1` | API 端点 |
 | `language` | `zh-CN` | 输出语言 |
+| `max_tokens` | `2000` | 最大输出 token 数 |
+
+---
 
 ## 定价
 
@@ -79,8 +84,24 @@ PR 提交后机器人自动在评论区回复审查报告：
 | 公开仓库 | 免费 |
 | 私人仓库 | $9/月 |
 
-## 隐私
+---
 
-- 代码仅发送到 DeepSeek API 用于审查
+## 隐私声明
+
+- 代码仅发送到 DeepSeek API 用于处理
 - 不存储、不记录、不训练
+- 所有处理在 GitHub Actions 运行环境中完成
 
+---
+
+## 相关资源
+
+- [DeepSeek API 文档](https://platform.deepseek.com/docs)
+- [GitHub Actions 文档](https://docs.github.com/actions)
+- [所有同系列 Action](https://github.com/s544vrmd4t-del?tab=repositories)
+
+---
+
+<p align="center">
+  Made with ⚡ by AI Toolchain
+</p>

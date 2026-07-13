@@ -2,8 +2,8 @@ name: AI Code Reviewer
 description: PR 提交自动 AI 代码审查，DeepSeek 驱动，评论直接写回 PR
 author: CodeReviewBot
 branding:
-  icon: zap
-  color: purple
+  icon: 'zap'
+  color: 'purple'
 inputs:
   api_key:
     description: DeepSeek API Key
