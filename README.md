@@ -1,10 +1,11 @@
-# 🤖 CodeReviewBot
+# 🤖 CodeReviewBot · AI 代码审查
 
-[![DeepSeek](https://img.shields.io/badge/AI-DeepSeek_V4-4B93BF)](https://deepseek.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![version](https://img.shields.io/badge/version-v3.0.0-blue)](https://github.com/s544vrmd4t-del/code-review-bot/releases)
+[![DeepSeek V4](https://img.shields.io/badge/AI-DeepSeek_V4-4B93BF?style=flat-square)](https://deepseek.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![v3.1](https://img.shields.io/badge/version-v3.1-blue?style=flat-square)](https://github.com/s544vrmd4t-del/code-review-bot/releases)
+[![Marketplace](https://img.shields.io/badge/Marketplace-Available-brightgreen?style=flat-square)](https://github.com/marketplace/actions/code-review-bot)
 
-> PR 提交后自动 AI 代码审查 — DeepSeek 驱动，结果直接评论到 PR
+> PR 提交 → AI 自动审查 → 评论报告。**DeepSeek 驱动，零配置，秒级响应。**
 
 ## 🚀 同系列 Action
 
